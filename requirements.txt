@@ -1,0 +1,6 @@
+google-cloud-logging
+google-cloud-pubsub
+google-cloud-firestore
+google-genai
+google-cloud-iam
+google-cloud-resource-manager
