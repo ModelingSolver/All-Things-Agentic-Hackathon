@@ -66,6 +66,10 @@ class Tank(BaseBox):
         return max(0, min(score, 100)), raisons
 
     def _on_ring_message(self, payload: dict):
+        # Ignore les paquets heartbeat (pas d'alerte réelle à traiter)
+        if payload.get("heartbeat"):
+            return
+
         # Tank ne traite que les alertes venant du Scout — évite de
         # se répondre à lui-même ou de traiter les signaux d'autres boxes
         # qui n'ont pas vocation à être re-confirmés par Tank.
@@ -98,6 +102,7 @@ class Tank(BaseBox):
 
     def run(self):
         print("[TANK] 🛡️ Démarrage — en attente des alertes Scout sur le ring.")
+        self.ring.start_heartbeat()  # signal de vie même sans confirmation à publier
         self.ring.listen(self._on_ring_message)  # bloquant, tourne indéfiniment
 
 

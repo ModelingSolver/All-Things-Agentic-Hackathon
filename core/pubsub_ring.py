@@ -23,6 +23,7 @@ import hashlib
 import hmac
 import json
 import os
+import threading
 import time
 
 from google.cloud import pubsub_v1
@@ -139,3 +140,22 @@ class RingClient:
         else:
             # laisse tourner en arrière-plan, l'appelant garde la main
             return streaming_pull_future
+
+    def start_heartbeat(self, interval_seconds: int = 30):
+        """Publie un paquet de heartbeat léger à intervalle régulier,
+        indépendamment de toute alerte trouvée ou non. Sans ça, Druid
+        ne peut pas distinguer 'box silencieuse' de 'box active mais
+        qui n'a rien à signaler ce cycle' — un signal faible n'est
+        pas un silence. Tourne dans un thread démon, ne bloque jamais
+        l'appelant."""
+
+        def _beat():
+            while True:
+                try:
+                    self.publish({"heartbeat": True})
+                except Exception as e:
+                    print(f"[RING][{self.box_name}] ⚠️ Heartbeat échoué : {e}")
+                time.sleep(interval_seconds)
+
+        t = threading.Thread(target=_beat, daemon=True)
+        t.start()

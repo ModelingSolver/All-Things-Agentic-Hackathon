@@ -83,6 +83,7 @@ class Ghost(BaseBox):
 
     def run(self):
         print("[GHOST] 👻 Démarrage — surveillance passive des patterns temporels.")
+        self.ring.start_heartbeat()  # signal de vie même sans alerte à publier
         while True:
             events = audit_log_reader.fetch_recent_events()
             new_events = [e for e in events if e.get("insert_id") not in self._seen_insert_ids]

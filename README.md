@@ -380,3 +380,17 @@ toujours") :
 - Toute erreur d'appel externe (API Cloud Logging, Pub/Sub, Firestore,
   Gemini) est catchée et loguée plutôt que de faire planter une box —
   le système est pensé pour tourner en autonome sans supervision constante.
+
+
+
+  Récap de la session :
+
+✅ Projet GCP hydra-cloud-shield créé, APIs activées (Logging, Pub/Sub, Firestore, Vertex AI — Cloud Run en attente billing lundi)
+✅ Environnement Debian complet (venv, dépendances, gcloud CLI, auth)
+✅ 3 fichiers vides récupérés (config/settings.py, boxes/base_box.py, .env.example — souci de transfert)
+✅ Bug locale UTF-8 corrigé et rendu permanent dans .bashrc
+✅ Les 5 boxes tournent ensemble pour la première fois, end-to-end, avec de vrais Cloud Audit Logs
+✅ Oracle synthétise via Gemini 3.6 avec des verdicts cohérents en français
+✅ Bug heartbeat corrigé (Druid distingue maintenant "silencieuse" de "rien à signaler")
+
+Reste à faire : point d'entrée humain pour la remédiation, déploiement Cloud Run (lundi), diagramme final, vidéo.
