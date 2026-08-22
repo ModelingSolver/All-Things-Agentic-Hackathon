@@ -60,7 +60,20 @@ hydra-cloud/
 │   ├── pubsub_ring.py          # publish/subscribe signé HMAC (remplace le ring UDP)
 │   ├── memory_store.py          # Firestore transactionnel (remplace memory.json)
 │   ├── gemini_client.py          # wrapper google-genai, utilisé uniquement par Oracle
-│   └── remediation.py             # construction de proposition + actions IAM (humain requis)
+│   └── remediation.py             # construction + persistance de proposition, actions IAM réelles
+│
+├── tools/
+│   └── remediate.py           # CLI de confirmation humaine — seul point d'entrée légitime
+│                                 # pour exécuter une remédiation IAM réelle (usage: python -m tools.remediate)
+│
+├── dashboard/                 # mission-control web, lecture Firestore en temps réel
+│   ├── index.html             # dashboard complet (HTML/CSS/JS vanilla, Firebase JS SDK)
+│   └── 404.html                # page d'erreur Firebase Hosting (générée automatiquement)
+│
+├── firestore.rules            # règles de sécurité — lecture publique, écriture bloquée côté client
+├── firestore.indexes.json     # index Firestore (généré par Firebase CLI)
+├── firebase.json              # config Firebase Hosting
+├── .firebaserc                # lien vers le projet Firebase
 │
 └── tests/
     └── test_pulse.py           # injection d'un événement de test dans le ring
@@ -309,7 +322,61 @@ la disponibilité de vrais logs suspects.
 | Scoring heuristique maison uniquement | Scoring heuristique **+** verdict Gemini (Oracle) |
 | Quarantaine = suspendre un PID + copier l'exe | Remédiation = révoquer un rôle IAM / désactiver une clé de SA |
 | 5 process Python séparés (`BOX0.py`...`BOX4.py`) | 1 service Cloud Run, rôle choisi via `BOX_ROLE` |
-| GUI Tkinter locale | (pas encore de GUI cloud — décision humaine via CLI pour l'instant) |
+| GUI Tkinter locale | Dashboard web temps réel (Firebase Hosting + Firestore live) |
+
+---
+
+## Dashboard — Command Console
+
+Un dashboard web statique (HTML/CSS/JS vanilla, sans framework ni build)
+lit Firestore en temps réel côté client via le SDK Firebase JS. Il affiche :
+- Les 5 agents (légende visuelle)
+- Le flux de verdicts en direct (`hydra_memory`), sans refresh
+- Les propositions de remédiation en attente (`hydra_remediation_proposals`)
+
+**Démo en ligne :** https://hydra-cloud-shield.web.app
+
+### Déployer/mettre à jour le dashboard
+
+```bash
+npm install -g firebase-tools   # une seule fois
+firebase login                   # une seule fois
+firebase deploy --only hosting
+```
+
+### Sécurité Firestore côté client
+
+Le dashboard lit Firestore directement depuis le navigateur (pas de
+backend intermédiaire), donc les règles de sécurité (`firestore.rules`)
+sont ce qui protège réellement les données — pas l'apiKey Firebase
+(qui est publique par design, visible dans le code source, ce n'est
+pas un secret). Règles actuelles : lecture publique autorisée sur
+`hydra_memory` et `hydra_remediation_proposals`, écriture bloquée pour
+tout accès client (seul le backend Python, authentifié via `gcloud`,
+peut écrire).
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+---
+
+## Console de remédiation humaine (`tools/remediate.py`)
+
+Le seul point d'entrée légitime pour exécuter une action IAM réelle.
+Oracle ne fait que **proposer** (`core.remediation.propose`), ce qui
+persiste la proposition dans Firestore avec le statut
+`pending_human_confirmation`. Ce script lit ces propositions, les
+affiche une par une, et n'exécute l'action réelle qu'après une
+confirmation explicite — il faut taper `CONFIRMER` en toutes lettres,
+pas juste `y`, pour une action destructive.
+
+```bash
+python -m tools.remediate
+```
+
+Pour chaque proposition : **[E]**xécuter, **[I]**gnorer (rejette
+définitivement), ou **[S]**kip (laisse en attente pour plus tard).
 
 ---
 
@@ -324,10 +391,11 @@ la disponibilité de vrais logs suspects.
 - Firestore (région `eur3`) créée et fonctionnelle
 - **Les 5 boxes tournent en parallèle pour de vrai**, communiquent via Pub/Sub, Oracle rend des verdicts cohérents via Gemini 3.6
 - Fix heartbeat : chaque box (Scout, Tank, Ghost, Oracle) publie désormais un signal de vie périodique (`RingClient.start_heartbeat`), indépendant de ses alertes — Druid distingue maintenant correctement "silencieuse" de "rien à signaler ce cycle"
+- **Point d'entrée humain complet** : `core/remediation.py` persiste les propositions dans Firestore, `tools/remediate.py` permet de les traiter avec confirmation explicite (`CONFIRMER` en toutes lettres). `execute_disable_service_account_key` et `execute_revoke_iam_role` sont implémentées (via `iam_admin_v1` et `resourcemanager_v3`), pas encore testées en conditions réelles
+- **Dashboard mission-control déployé publiquement** sur Firebase Hosting : https://hydra-cloud-shield.web.app — lecture Firestore en temps réel, règles de sécurité en place (lecture publique, écriture bloquée)
 
 ### ⏳ À faire avant soumission
-- [ ] Point d'entrée humain pour valider/déclencher `execute_disable_service_account_key`
-      et `execute_revoke_iam_role` (CLI avec confirmation `[y/N]`)
+- [ ] Tester `execute_disable_service_account_key` et `execute_revoke_iam_role` en conditions réelles (avec un compte de test, pas un compte de prod)
 - [ ] Cloud Run — en attente de l'activation du billing (crédits hackathon, arrivée prévue lundi)
 - [ ] Remplir `PROJECT_ID` dans `deploy.sh` et faire un vrai déploiement Cloud Run
 - [ ] Passer `HYDRA_RING_HMAC_KEY` et `GEMINI_API_KEY` par Secret Manager plutôt qu'en env var en clair
