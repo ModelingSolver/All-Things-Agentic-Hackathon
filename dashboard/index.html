@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Hydra Cloud Shield — Command Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-void: #05070c;
+    --bg-panel: #0d1220;
+    --bg-panel-hover: #121729;
+    --line: #1c2333;
+    --teal: #22d3ee;
+    --purple: #a78bfa;
+    --coral: #fb7185;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --text-primary: #e2e8f0;
+    --text-dim: #64748b;
+    --text-faint: #3a4356;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg-void);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(34,211,238,0.06), transparent 40%),
+      radial-gradient(circle at 85% 90%, rgba(167,139,250,0.06), transparent 40%);
+    color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 32px 24px 80px;
+  }
+
+  .wrap { max-width: 1000px; margin: 0 auto; }
+
+  /* ── Header ────────────────────────────────────────────── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 32px;
+  }
+
+  .brand { display: flex; align-items: center; gap: 14px; }
+
+  .brand-mark {
+    width: 40px; height: 40px;
+    border: 1.5px solid var(--teal);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800; font-size: 18px;
+    color: var(--teal);
+    box-shadow: 0 0 20px rgba(34,211,238,0.25);
+  }
+
+  .brand h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 20px;
+    letter-spacing: 0.02em;
+  }
+
+  .brand span.sub {
+    display: block;
+    font-family: 'Inter', sans-serif;
+    font-weight: 500;
+    font-size: 12px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .status-pill {
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-dim);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 7px 14px;
+  }
+
+  .pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+
+  .pulse-dot.quiet { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+  .pulse-dot.offline { background: var(--text-faint); box-shadow: none; animation: none; }
+
+  @keyframes breathe {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.85); }
+  }
+
+  /* ── Agent legend row ──────────────────────────────────── */
+  .agents {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-bottom: 36px;
+  }
+
+  .agent-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 12px;
+    text-align: center;
+  }
+
+  .agent-card .glyph {
+    width: 34px; height: 34px;
+    margin: 0 auto 10px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .agent-card .name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 3px;
+  }
+
+  .agent-card .role {
+    font-size: 10.5px;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+
+  .agent-card.teal .glyph { background: rgba(34,211,238,0.12); color: var(--teal); }
+  .agent-card.coral .glyph { background: rgba(251,113,133,0.12); color: var(--coral); }
+  .agent-card.purple .glyph { background: rgba(167,139,250,0.12); color: var(--purple); }
+
+  /* ── Section labels ────────────────────────────────────── */
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
+  }
+
+  /* ── Remediation panel ─────────────────────────────────── */
+  .remediation-panel {
+    margin-bottom: 36px;
+  }
+
+  .remediation-empty {
+    background: var(--bg-panel);
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .remediation-card {
+    background: linear-gradient(180deg, rgba(248,113,113,0.08), transparent);
+    border: 1px solid rgba(248,113,113,0.35);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 10px;
+  }
+
+  .remediation-card .top-row {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 8px; gap: 12px; flex-wrap: wrap;
+  }
+
+  .remediation-card .identity {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--red);
+  }
+
+  .remediation-card .action-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--red);
+    border: 1px solid rgba(248,113,113,0.4);
+    border-radius: 6px;
+    padding: 3px 8px;
+    white-space: nowrap;
+  }
+
+  .remediation-card .explanation {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  .remediation-card .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  /* ── Verdict feed ──────────────────────────────────────── */
+  .feed { display: flex; flex-direction: column; gap: 8px; }
+
+  .verdict-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--text-faint);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    transition: background 0.15s ease;
+  }
+
+  .verdict-card:hover { background: var(--bg-panel-hover); }
+
+  .verdict-card.safe { border-left-color: var(--green); }
+  .verdict-card.suspect { border-left-color: var(--amber); }
+  .verdict-card.sandbox, .verdict-card.critical { border-left-color: var(--red); }
+
+  .verdict-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+  .verdict-identity {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 320px;
+  }
+
+  .verdict-meta {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .score-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+  }
+
+  .score-badge.safe { background: rgba(52,211,153,0.12); color: var(--green); }
+  .score-badge.suspect { background: rgba(251,191,36,0.12); color: var(--amber); }
+  .score-badge.sandbox, .score-badge.critical { background: rgba(248,113,113,0.12); color: var(--red); }
+  .score-badge.unknown { background: rgba(100,116,139,0.12); color: var(--text-dim); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-dim);
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ── Config notice ─────────────────────────────────────── */
+  .config-notice {
+    background: rgba(251,191,36,0.06);
+    border: 1px solid rgba(251,191,36,0.25);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-primary);
+    margin-bottom: 32px;
+  }
+
+  .config-notice strong { color: var(--amber); }
+  .config-notice code {
+    font-family: 'JetBrains Mono', monospace;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 48px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    letter-spacing: 0.04em;
+  }
+
+  @media (max-width: 640px) {
+    .agents { grid-template-columns: repeat(3, 1fr); }
+    .verdict-identity { max-width: 160px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-dot { animation: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="brand-mark">H</div>
+      <div>
+        <h1>HYDRA CLOUD SHIELD</h1>
+        <span class="sub">Distributed threat detection — command console</span>
+      </div>
+    </div>
+    <div class="status-pill">
+      <span class="pulse-dot" id="statusDot"></span>
+      <span id="statusText">CONNECTING…</span>
+    </div>
+  </header>
+
+  <div class="config-notice" id="configNotice">
+    <strong>Config requise —</strong> ouvre <code>index.html</code>, remplis l'objet
+    <code>firebaseConfig</code> en haut du script avec les identifiants de ton
+    projet Firebase (récupérables dans la Console Firebase → Paramètres du
+    projet → Vos applications → Config SDK). Supprime ce bandeau une fois fait.
+  </div>
+
+  <div class="agents">
+    <div class="agent-card teal">
+      <div class="glyph">SC</div>
+      <div class="name">SCOUT</div>
+      <div class="role">Détection rapide<br>seuils bas</div>
+    </div>
+    <div class="agent-card coral">
+      <div class="glyph">TK</div>
+      <div class="name">TANK</div>
+      <div class="role">Confirmation<br>historique</div>
+    </div>
+    <div class="agent-card teal">
+      <div class="glyph">GH</div>
+      <div class="name">GHOST</div>
+      <div class="role">Patterns<br>temporels</div>
+    </div>
+    <div class="agent-card purple">
+      <div class="glyph">OR</div>
+      <div class="name">ORACLE</div>
+      <div class="role">Consensus<br>Gemini</div>
+    </div>
+    <div class="agent-card coral">
+      <div class="glyph">DR</div>
+      <div class="name">DRUID</div>
+      <div class="role">Santé<br>de la ruche</div>
+    </div>
+  </div>
+
+  <div class="remediation-panel">
+    <div class="section-label">Remédiation en attente</div>
+    <div id="remediationList">
+      <div class="remediation-empty">Aucune proposition en attente — la ruche n'a rien signalé de critique.</div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-label">Flux de verdicts</div>
+    <div class="feed" id="feedList">
+      <div class="empty-state">En attente des premières données Firestore…</div>
+    </div>
+  </div>
+
+  <footer>BUILT WITH GOOGLE CLOUD RUN · PUB/SUB · FIRESTORE · GEMINI</footer>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import {
+    getFirestore, collection, query, orderBy, limit, onSnapshot, where
+  } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+  // ─────────────────────────────────────────────────────────
+  // CONFIG — remplis avec tes identifiants Firebase (Console
+  // Firebase → Paramètres du projet → Vos applications → Config SDK)
+  // C'est un projet Firestore qui est déjà lié à ton projet GCP
+  // hydra-cloud-shield, pas un nouveau projet à créer.
+  // ─────────────────────────────────────────────────────────
+  const firebaseConfig = {
+    apiKey: "TON_API_KEY",
+    authDomain: "hydra-cloud-shield.firebaseapp.com",
+    projectId: "hydra-cloud-shield",
+    storageBucket: "hydra-cloud-shield.appspot.com",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+  const feedList = document.getElementById('feedList');
+  const remediationList = document.getElementById('remediationList');
+
+  function verdictClass(verdict) {
+    if (verdict === 'safe') return 'safe';
+    if (verdict === 'suspect') return 'suspect';
+    if (verdict === 'sandbox' || verdict === 'critical') return 'sandbox';
+    return 'unknown';
+  }
+
+  function timeAgo(ts) {
+    if (!ts) return '—';
+    const seconds = Math.floor(Date.now() / 1000 - ts);
+    if (seconds < 60) return `il y a ${seconds}s`;
+    if (seconds < 3600) return `il y a ${Math.floor(seconds / 60)}min`;
+    return `il y a ${Math.floor(seconds / 3600)}h`;
+  }
+
+  // ── Flux de verdicts (collection hydra_memory) ──────────
+  const memoryQuery = query(
+    collection(db, "hydra_memory"),
+    orderBy("last_seen", "desc"),
+    limit(20)
+  );
+
+  let connected = false;
+
+  onSnapshot(memoryQuery, (snapshot) => {
+    connected = true;
+    statusDot.classList.remove('offline', 'quiet');
+    statusText.textContent = 'RUCHE ACTIVE';
+
+    if (snapshot.empty) {
+      feedList.innerHTML = '<div class="empty-state">Aucun événement enregistré pour l\'instant.</div>';
+      return;
+    }
+
+    feedList.innerHTML = '';
+    snapshot.forEach((doc) => {
+      const d = doc.data();
+      const vClass = verdictClass(d.verdict);
+      const avgScore = d.score_history && d.score_history.length
+        ? Math.round(d.score_history.reduce((a, b) => a + b, 0) / d.score_history.length)
+        : 0;
+
+      const card = document.createElement('div');
+      card.className = `verdict-card ${vClass}`;
+      card.innerHTML = `
+        <div class="verdict-left">
+          <span class="verdict-identity">${d.identity || doc.id}</span>
+          <span class="verdict-meta">${d.encounters || 0} rencontre(s) · ${timeAgo(d.last_seen)}</span>
+        </div>
+        <span class="score-badge ${vClass}">${(d.verdict || 'unknown').toUpperCase()} · ${avgScore}/100</span>
+      `;
+      feedList.appendChild(card);
+    });
+  }, (error) => {
+    statusDot.classList.add('offline');
+    statusText.textContent = 'ERREUR CONNEXION';
+    feedList.innerHTML = `<div class="empty-state">Impossible de lire Firestore — vérifie firebaseConfig et les règles de sécurité.<br><br>${error.message}</div>`;
+  });
+
+  // ── Propositions de remédiation en attente ──────────────
+  const remediationQuery = query(
+    collection(db, "hydra_remediation_proposals"),
+    where("status", "==", "pending_human_confirmation"),
+    orderBy("proposed_at", "desc")
+  );
+
+  onSnapshot(remediationQuery, (snapshot) => {
+    if (snapshot.empty) {
+      remediationList.innerHTML = '<div class="remediation-empty">Aucune proposition en attente — la ruche n\'a rien signalé de critique.</div>';
+      return;
+    }
+
+    remediationList.innerHTML = '';
+    snapshot.forEach((doc) => {
+      const p = doc.data();
+      const card = document.createElement('div');
+      card.className = 'remediation-card';
+      card.innerHTML = `
+        <div class="top-row">
+          <span class="identity">${p.identity}</span>
+          <span class="action-tag">${(p.recommended_action || 'monitor').replace(/_/g, ' ')}</span>
+        </div>
+        <div class="explanation">${p.explanation || ''}</div>
+        <div class="meta">Score ${p.score}/100 · proposé ${timeAgo(p.proposed_at)} · en attente sur tools/remediate.py</div>
+      `;
+      remediationList.appendChild(card);
+    });
+  });
+
+  // Si rien ne se connecte après 5s, affiche un état "hors ligne" honnête
+  setTimeout(() => {
+    if (!connected) {
+      statusDot.classList.add('offline');
+      statusText.textContent = 'AUCUNE DONNÉE';
+    }
+  }, 5000);
+</script>
+</body>
+</html>
