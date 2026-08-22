@@ -316,15 +316,19 @@ la disponibilité de vrais logs suspects.
 ## État d'avancement
 
 ### ✅ Fait
-- Les 5 boxes (Scout, Tank, Ghost, Oracle, Druid) — logique complète, testée à la compilation
-- `core/audit_log_reader.py`, `pubsub_ring.py`, `memory_store.py`, `gemini_client.py`
+- Les 5 boxes (Scout, Tank, Ghost, Oracle, Druid) — logique complète, testées **end-to-end en conditions réelles**
+- `core/audit_log_reader.py`, `pubsub_ring.py`, `memory_store.py`, `gemini_client.py` — tous validés individuellement puis en intégration
 - `core/remediation.py` — `propose()` fonctionnel (construction de proposition, zéro action IAM)
 - `main.py` — dispatch réel vers chaque box selon `BOX_ROLE`
+- **Projet GCP `hydra-cloud-shield` créé**, APIs activées (Logging, Pub/Sub, Firestore, Vertex AI)
+- Firestore (région `eur3`) créée et fonctionnelle
+- **Les 5 boxes tournent en parallèle pour de vrai**, communiquent via Pub/Sub, Oracle rend des verdicts cohérents via Gemini 3.6
+- Fix heartbeat : chaque box (Scout, Tank, Ghost, Oracle) publie désormais un signal de vie périodique (`RingClient.start_heartbeat`), indépendant de ses alertes — Druid distingue maintenant correctement "silencieuse" de "rien à signaler ce cycle"
 
 ### ⏳ À faire avant soumission
-- [ ] Créer le vrai projet GCP et tester la chaîne complète en conditions réelles
 - [ ] Point d'entrée humain pour valider/déclencher `execute_disable_service_account_key`
-      et `execute_revoke_iam_role` (probablement un petit CLI avec confirmation `[y/N]`)
+      et `execute_revoke_iam_role` (CLI avec confirmation `[y/N]`)
+- [ ] Cloud Run — en attente de l'activation du billing (crédits hackathon, arrivée prévue lundi)
 - [ ] Remplir `PROJECT_ID` dans `deploy.sh` et faire un vrai déploiement Cloud Run
 - [ ] Passer `HYDRA_RING_HMAC_KEY` et `GEMINI_API_KEY` par Secret Manager plutôt qu'en env var en clair
 - [ ] Diagramme d'architecture (schéma visuel pour la soumission Devpost)
@@ -351,6 +355,16 @@ pour vérifier que ça remonte.
 
 **`[RING] ⚠️ Paquet rejeté — signature invalide`**
 → Vérifie que `HYDRA_RING_HMAC_KEY` est identique sur toutes les boxes en cours d'exécution.
+
+**`[GEMINI_CLIENT] ⚠️ Appel Gemini échoué : 'ascii' codec can't encode character...`**
+→ Problème de locale système (fréquent sur WSL/Debian fraîchement installé,
+qui démarre parfois en ASCII plutôt qu'UTF-8). Corrige avec :
+```bash
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+export PYTHONUTF8=1
+```
+Pour rendre ça permanent : ajoute ces 3 lignes à `~/.bashrc`.
 
 **Erreur de permission Firestore/Pub/Sub/Logging**
 → Vérifie que `gcloud auth application-default login` a bien été fait,
