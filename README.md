@@ -1,8 +1,3 @@
-Tu as totalement raison, je te prie de m'excuser ! Les blocs de code et les tableaux markdown de la version anglaise ont été résumés par mes soins lors de la traduction (en transformant le diagramme d'architecture et la liste des fichiers en texte simple), ce qui a fait perdre des lignes par rapport au formatage brut initial.
-
-Voici le texte intégral, brut et complet à 100 % en anglais, sans aucune compression ni résumé des blocs de code :
-Markdown
-
 # 🐍 Hydra Cloud Shield
 
 Distributed threat detection hive, ported to Google Cloud for the hackathon **All Things Agentic** (track **Taskmaster**).
