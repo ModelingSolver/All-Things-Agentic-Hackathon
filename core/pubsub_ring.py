@@ -27,9 +27,12 @@ import threading
 import time
 
 from google.cloud import pubsub_v1
+from google.cloud import firestore
 from google.api_core.exceptions import AlreadyExists, NotFound
 
 from config.settings import PROJECT_ID, RING_TOPIC, RING_SUBSCRIPTION_PREFIX
+
+AGENT_STATUS_COLLECTION = "hydra_agent_status"
 
 # Clé partagée pour signer les paquets — en prod, passe par Secret Manager.
 # En local/dev, une variable d'env fait l'affaire pour le hackathon.
@@ -66,19 +69,25 @@ class RingClient:
 
     def _ensure_topic(self):
         try:
-            self.publisher.create_topic(request={"name": self.topic_path})
-            print(f"[RING] Topic créé : {RING_TOPIC}")
-        except AlreadyExists:
-            pass  # déjà là, tant mieux
+            self.publisher.get_topic(request={"topic": self.topic_path})
+        except NotFound:
+            try:
+                self.publisher.create_topic(request={"name": self.topic_path})
+                print(f"[RING] Topic créé : {RING_TOPIC}")
+            except AlreadyExists:
+                pass
 
     def _ensure_subscription(self):
         try:
-            self.subscriber.create_subscription(
-                request={"name": self.subscription_path, "topic": self.topic_path}
-            )
-            print(f"[RING][{self.box_name}] Subscription créée.")
-        except AlreadyExists:
-            pass
+            self.subscriber.get_subscription(request={"subscription": self.subscription_path})
+        except NotFound:
+            try:
+                self.subscriber.create_subscription(
+                    request={"name": self.subscription_path, "topic": self.topic_path}
+                )
+                print(f"[RING][{self.box_name}] Subscription créée.")
+            except AlreadyExists:
+                pass
 
     def publish(self, payload: dict):
         """Signe et publie un paquet sur le topic partagé.
@@ -147,14 +156,30 @@ class RingClient:
         ne peut pas distinguer 'box silencieuse' de 'box active mais
         qui n'a rien à signaler ce cycle' — un signal faible n'est
         pas un silence. Tourne dans un thread démon, ne bloque jamais
-        l'appelant."""
+        l'appelant.
+
+        Écrit aussi le heartbeat dans Firestore (hydra_agent_status)
+        pour que le dashboard puisse afficher en direct quel agent est
+        actif — le ring Pub/Sub est éphémère (pas d'historique), donc
+        cette écriture séparée est ce qui rend le statut visible côté
+        UI plutôt que seulement entre boxes."""
+        db = firestore.Client()
 
         def _beat():
             while True:
                 try:
                     self.publish({"heartbeat": True})
                 except Exception as e:
-                    print(f"[RING][{self.box_name}] ⚠️ Heartbeat échoué : {e}")
+                    print(f"[RING][{self.box_name}] ⚠️ Heartbeat ring échoué : {e}")
+
+                try:
+                    db.collection(AGENT_STATUS_COLLECTION).document(self.box_name).set({
+                        "role": self.box_name,
+                        "last_seen": time.time(),
+                    })
+                except Exception as e:
+                    print(f"[RING][{self.box_name}] ⚠️ Heartbeat Firestore échoué : {e}")
+
                 time.sleep(interval_seconds)
 
         t = threading.Thread(target=_beat, daemon=True)

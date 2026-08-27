@@ -148,6 +148,43 @@
   .agent-card.coral .glyph { background: rgba(251,113,133,0.12); color: var(--coral); }
   .agent-card.purple .glyph { background: rgba(167,139,250,0.12); color: var(--purple); }
 
+  .agent-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+
+  .agent-status-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text-faint);
+    flex-shrink: 0;
+  }
+
+  .agent-status[data-status="active"] .agent-status-dot {
+    background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+    animation: breathe 2.4s ease-in-out infinite;
+  }
+
+  .agent-status[data-status="stale"] .agent-status-dot {
+    background: var(--amber);
+    box-shadow: 0 0 6px var(--amber);
+  }
+
+  .agent-status[data-status="offline"] .agent-status-dot {
+    background: var(--text-faint);
+  }
+
+  .agent-status-text {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+
   /* ── Section labels ────────────────────────────────────── */
   .section-label {
     font-family: 'JetBrains Mono', monospace;
@@ -400,38 +437,51 @@
     </div>
   </header>
 
-  <div class="config-notice" id="configNotice">
-    <strong>Config requise —</strong> ouvre <code>index.html</code>, remplis l'objet
-    <code>firebaseConfig</code> en haut du script avec les identifiants de ton
-    projet Firebase (récupérables dans la Console Firebase → Paramètres du
-    projet → Vos applications → Config SDK). Supprime ce bandeau une fois fait.
-  </div>
-
   <div class="agents">
-    <div class="agent-card teal">
+    <div class="agent-card teal" id="agent-scout">
       <div class="glyph">SC</div>
       <div class="name">SCOUT</div>
       <div class="role">Détection rapide<br>seuils bas</div>
+      <div class="agent-status" data-status="unknown">
+        <span class="agent-status-dot"></span>
+        <span class="agent-status-text">—</span>
+      </div>
     </div>
-    <div class="agent-card coral">
+    <div class="agent-card coral" id="agent-tank">
       <div class="glyph">TK</div>
       <div class="name">TANK</div>
       <div class="role">Confirmation<br>historique</div>
+      <div class="agent-status" data-status="unknown">
+        <span class="agent-status-dot"></span>
+        <span class="agent-status-text">—</span>
+      </div>
     </div>
-    <div class="agent-card teal">
+    <div class="agent-card teal" id="agent-ghost">
       <div class="glyph">GH</div>
       <div class="name">GHOST</div>
       <div class="role">Patterns<br>temporels</div>
+      <div class="agent-status" data-status="unknown">
+        <span class="agent-status-dot"></span>
+        <span class="agent-status-text">—</span>
+      </div>
     </div>
-    <div class="agent-card purple">
+    <div class="agent-card purple" id="agent-oracle">
       <div class="glyph">OR</div>
       <div class="name">ORACLE</div>
       <div class="role">Consensus<br>Gemini</div>
+      <div class="agent-status" data-status="unknown">
+        <span class="agent-status-dot"></span>
+        <span class="agent-status-text">—</span>
+      </div>
     </div>
-    <div class="agent-card coral">
+    <div class="agent-card coral" id="agent-druid">
       <div class="glyph">DR</div>
       <div class="name">DRUID</div>
       <div class="role">Santé<br>de la ruche</div>
+      <div class="agent-status" data-status="unknown">
+        <span class="agent-status-dot"></span>
+        <span class="agent-status-text">—</span>
+      </div>
     </div>
   </div>
 
@@ -472,10 +522,10 @@
   // hydra-cloud-shield, pas un nouveau projet à créer.
   // ─────────────────────────────────────────────────────────
   const firebaseConfig = {
-    apiKey: "TON_API_KEY",
-    authDomain: "hydra-cloud-shield.firebaseapp.com",
-    projectId: "hydra-cloud-shield",
-    storageBucket: "hydra-cloud-shield.appspot.com",
+      apiKey: "AIzaSyBbKrPg8cqWjUWtG8A7L_HDR2WdKQnjVuI",
+      authDomain: "hydra-cloud-shield.firebaseapp.com",
+      projectId: "hydra-cloud-shield",
+      storageBucket: "hydra-cloud-shield.firebasestorage.app",
   };
 
   const app = initializeApp(firebaseConfig);
@@ -618,6 +668,59 @@
       remediationHistoryList.appendChild(card);
     });
   });
+
+  // ── Statuts d'agents en direct (heartbeats persistés) ──────────
+  // active   : heartbeat reçu il y a moins de 45s (le cycle attendu est 30s)
+  // stale    : heartbeat reçu il y a 45s-90s (probablement en train de redémarrer)
+  // offline  : plus de 90s, ou jamais vu
+  const AGENT_IDS = { scout: "agent-scout", tank: "agent-tank", ghost: "agent-ghost",
+                      oracle: "agent-oracle", druid: "agent-druid" };
+  const _lastSeenByAgent = {};
+
+  function _renderAgentStatus(role) {
+    const cardId = AGENT_IDS[role];
+    if (!cardId) return;
+    const card = document.getElementById(cardId);
+    if (!card) return;
+
+    const statusEl = card.querySelector('.agent-status');
+    const textEl = card.querySelector('.agent-status-text');
+    const lastSeen = _lastSeenByAgent[role];
+
+    if (!lastSeen) {
+      statusEl.dataset.status = 'unknown';
+      textEl.textContent = '—';
+      return;
+    }
+
+    const ageSeconds = Date.now() / 1000 - lastSeen;
+    if (ageSeconds < 45) {
+      statusEl.dataset.status = 'active';
+      textEl.textContent = 'active';
+    } else if (ageSeconds < 90) {
+      statusEl.dataset.status = 'stale';
+      textEl.textContent = timeAgo(lastSeen);
+    } else {
+      statusEl.dataset.status = 'offline';
+      textEl.textContent = 'offline';
+    }
+  }
+
+  onSnapshot(collection(db, "hydra_agent_status"), (snapshot) => {
+    snapshot.forEach((doc) => {
+      const d = doc.data();
+      _lastSeenByAgent[doc.id] = d.last_seen;
+      _renderAgentStatus(doc.id);
+    });
+  }, (error) => {
+    console.warn("Statut agents indisponible :", error.message);
+  });
+
+  // Les cartes doivent aussi "vieillir" sans nouvel événement Firestore
+  // (ex: passer de active à offline si une box crashe silencieusement)
+  setInterval(() => {
+    Object.keys(AGENT_IDS).forEach(_renderAgentStatus);
+  }, 5000);
 
   // Si rien ne se connecte après 5s, affiche un état "hors ligne" honnête
   setTimeout(() => {

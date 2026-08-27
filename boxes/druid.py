@@ -68,6 +68,12 @@ class Druid(BaseBox):
     def run(self):
         print("[DRUID] 🌿 Démarrage — surveillance de la santé de la ruche.")
 
+        # Druid publie aussi son propre heartbeat — pas pour être surveillé
+        # par les autres boxes (il n'est volontairement pas dans
+        # EXPECTED_ROLES, qui ne concerne que ce que LUI surveille), mais
+        # pour que le dashboard puisse afficher son statut comme les autres.
+        self.ring.start_heartbeat()
+
         # Écoute le ring en arrière-plan pour capter les heartbeats implicites
         # (chaque publication d'une box vaut heartbeat, pas besoin d'un
         # message dédié).

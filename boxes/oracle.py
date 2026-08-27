@@ -107,6 +107,7 @@ class Oracle(BaseBox):
 
     def run(self):
         print("[ORACLE] 🔮 Démarrage — écoute du ring, consensus piloté par Gemini.")
+        self.ring.start_heartbeat()  # signal de vie même sans consensus à publier
         self.ring.listen(self._on_ring_message)  # bloquant
 
 
