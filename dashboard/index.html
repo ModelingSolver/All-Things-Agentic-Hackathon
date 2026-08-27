@@ -231,6 +231,54 @@
     color: var(--text-dim);
   }
 
+  /* ── Historique de remédiation ─────────────────────────── */
+  .history-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .history-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+  .history-identity {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 280px;
+  }
+
+  .history-meta {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    white-space: nowrap;
+  }
+
+  .status-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 4px 10px;
+    border-radius: 6px;
+    white-space: nowrap;
+    text-transform: uppercase;
+  }
+
+  .status-badge.executed { background: rgba(52,211,153,0.12); color: var(--green); }
+  .status-badge.rejected { background: rgba(100,116,139,0.15); color: var(--text-dim); }
+  .status-badge.skipped { background: rgba(251,191,36,0.12); color: var(--amber); }
+  .status-badge.failed { background: rgba(248,113,113,0.12); color: var(--red); }
+
   /* ── Verdict feed ──────────────────────────────────────── */
   .feed { display: flex; flex-direction: column; gap: 8px; }
 
@@ -352,6 +400,13 @@
     </div>
   </header>
 
+  <div class="config-notice" id="configNotice">
+    <strong>Config requise —</strong> ouvre <code>index.html</code>, remplis l'objet
+    <code>firebaseConfig</code> en haut du script avec les identifiants de ton
+    projet Firebase (récupérables dans la Console Firebase → Paramètres du
+    projet → Vos applications → Config SDK). Supprime ce bandeau une fois fait.
+  </div>
+
   <div class="agents">
     <div class="agent-card teal">
       <div class="glyph">SC</div>
@@ -387,6 +442,13 @@
     </div>
   </div>
 
+  <div class="remediation-panel">
+    <div class="section-label">Historique de remédiation</div>
+    <div id="remediationHistoryList">
+      <div class="remediation-empty">Aucune décision humaine enregistrée pour l'instant.</div>
+    </div>
+  </div>
+
   <div>
     <div class="section-label">Flux de verdicts</div>
     <div class="feed" id="feedList">
@@ -410,7 +472,7 @@
   // hydra-cloud-shield, pas un nouveau projet à créer.
   // ─────────────────────────────────────────────────────────
   const firebaseConfig = {
-    apiKey: "AIzaSyBbKrPg8cqWjUWtG8A7L_HDR2WdKQnjVuI",
+    apiKey: "TON_API_KEY",
     authDomain: "hydra-cloud-shield.firebaseapp.com",
     projectId: "hydra-cloud-shield",
     storageBucket: "hydra-cloud-shield.appspot.com",
@@ -423,6 +485,7 @@
   const statusText = document.getElementById('statusText');
   const feedList = document.getElementById('feedList');
   const remediationList = document.getElementById('remediationList');
+  const remediationHistoryList = document.getElementById('remediationHistoryList');
 
   function verdictClass(verdict) {
     if (verdict === 'safe') return 'safe';
@@ -510,6 +573,49 @@
         <div class="meta">Score ${p.score}/100 · proposé ${timeAgo(p.proposed_at)} · en attente sur tools/remediate.py</div>
       `;
       remediationList.appendChild(card);
+    });
+  });
+
+  // ── Historique de remédiation (décisions humaines déjà prises) ──
+  // On trie sur resolved_at, un champ que seules les propositions
+  // RÉSOLUES possèdent — ça exclut naturellement les propositions
+  // encore en attente, sans avoir besoin d'un filtre where() combiné
+  // (donc pas d'index composite supplémentaire à créer).
+  const historyQuery = query(
+    collection(db, "hydra_remediation_proposals"),
+    orderBy("resolved_at", "desc"),
+    limit(5)
+  );
+
+  const STATUS_LABELS = {
+    executed: "EXÉCUTÉ",
+    rejected: "IGNORÉ",
+    skipped: "REPORTÉ",
+    failed: "ÉCHEC",
+  };
+
+  onSnapshot(historyQuery, (snapshot) => {
+    if (snapshot.empty) {
+      remediationHistoryList.innerHTML = '<div class="remediation-empty">Aucune décision humaine enregistrée pour l\'instant.</div>';
+      return;
+    }
+
+    remediationHistoryList.innerHTML = '';
+    snapshot.forEach((doc) => {
+      const p = doc.data();
+      const statusClass = p.status || 'skipped';
+      const statusLabel = STATUS_LABELS[p.status] || (p.status || 'inconnu').toUpperCase();
+
+      const card = document.createElement('div');
+      card.className = 'history-card';
+      card.innerHTML = `
+        <div class="history-left">
+          <span class="history-identity">${p.identity || '—'}</span>
+          <span class="history-meta">${(p.recommended_action || '').replace(/_/g, ' ')} · résolu ${timeAgo(p.resolved_at)}</span>
+        </div>
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
+      `;
+      remediationHistoryList.appendChild(card);
     });
   });
 
