@@ -119,6 +119,17 @@
     border-radius: 12px;
     padding: 16px 12px;
     text-align: center;
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+  }
+
+  .agent-card:hover {
+    background: var(--bg-panel-hover);
+    border-color: var(--text-faint);
+  }
+
+  .agent-card.selected {
+    border-color: var(--teal);
   }
 
   .agent-card .glyph {
@@ -316,6 +327,45 @@
   .status-badge.skipped { background: rgba(251,191,36,0.12); color: var(--amber); }
   .status-badge.failed { background: rgba(248,113,113,0.12); color: var(--red); }
 
+  /* ── Panneau d'activité par agent (au clic sur une carte) ── */
+  #agentActivityPanel {
+    margin-bottom: 36px;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .activity-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+
+  .activity-identity {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 300px;
+  }
+
+  .activity-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
   /* ── Verdict feed ──────────────────────────────────────── */
   .feed { display: flex; flex-direction: column; gap: 8px; }
 
@@ -437,6 +487,13 @@
     </div>
   </header>
 
+  <div class="config-notice" id="configNotice">
+    <strong>Config requise —</strong> ouvre <code>index.html</code>, remplis l'objet
+    <code>firebaseConfig</code> en haut du script avec les identifiants de ton
+    projet Firebase (récupérables dans la Console Firebase → Paramètres du
+    projet → Vos applications → Config SDK). Supprime ce bandeau une fois fait.
+  </div>
+
   <div class="agents">
     <div class="agent-card teal" id="agent-scout">
       <div class="glyph">SC</div>
@@ -485,6 +542,13 @@
     </div>
   </div>
 
+  <div id="agentActivityPanel" style="display:none;">
+    <div class="section-label">
+      <span id="agentActivityTitle">Activité de l'agent</span>
+    </div>
+    <div id="agentActivityList"></div>
+  </div>
+
   <div class="remediation-panel">
     <div class="section-label">Remédiation en attente</div>
     <div id="remediationList">
@@ -512,7 +576,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
-    getFirestore, collection, query, orderBy, limit, onSnapshot, where
+    getFirestore, collection, query, orderBy, limit, onSnapshot, where, getDocs
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   // ─────────────────────────────────────────────────────────
@@ -721,6 +785,80 @@
   setInterval(() => {
     Object.keys(AGENT_IDS).forEach(_renderAgentStatus);
   }, 5000);
+
+  // ── Activité par agent (au clic sur une carte) ──────────────────
+  // Requête ponctuelle (pas de listener live) sur hydra_memory, filtrée
+  // par reported_by array-contains <role>. Pas d'orderBy() côté serveur
+  // pour éviter un index composite — on trie côté client à la place,
+  // largement suffisant pour une poignée de résultats affichés au clic.
+  const AGENT_NAMES = { scout: "SCOUT", tank: "TANK", ghost: "GHOST",
+                        oracle: "ORACLE", druid: "DRUID" };
+  const activityPanel = document.getElementById('agentActivityPanel');
+  const activityTitle = document.getElementById('agentActivityTitle');
+  const activityList = document.getElementById('agentActivityList');
+  let _selectedAgent = null;
+
+  async function _showAgentActivity(role) {
+    // Re-clic sur la même carte → referme le panneau
+    if (_selectedAgent === role) {
+      activityPanel.style.display = 'none';
+      document.getElementById(AGENT_IDS[role]).classList.remove('selected');
+      _selectedAgent = null;
+      return;
+    }
+
+    // Retire la sélection visuelle précédente
+    if (_selectedAgent) {
+      document.getElementById(AGENT_IDS[_selectedAgent]).classList.remove('selected');
+    }
+    _selectedAgent = role;
+    document.getElementById(AGENT_IDS[role]).classList.add('selected');
+
+    activityTitle.textContent = `Activité récente — ${AGENT_NAMES[role]}`;
+    activityList.innerHTML = '<div class="remediation-empty">Chargement…</div>';
+    activityPanel.style.display = 'block';
+
+    try {
+      const q = query(
+        collection(db, "hydra_memory"),
+        where("reported_by", "array-contains", role),
+        limit(20)
+      );
+      const snapshot = await getDocs(q);
+
+      if (snapshot.empty) {
+        activityList.innerHTML = '<div class="remediation-empty">Aucune activité enregistrée pour cet agent pour l\'instant.</div>';
+        return;
+      }
+
+      const docs = snapshot.docs
+        .map((d) => d.data())
+        .sort((a, b) => (b.last_seen || 0) - (a.last_seen || 0))
+        .slice(0, 8);
+
+      activityList.innerHTML = '';
+      docs.forEach((d) => {
+        const vClass = verdictClass(d.verdict);
+        const avgScore = d.score_history && d.score_history.length
+          ? Math.round(d.score_history.reduce((a, b) => a + b, 0) / d.score_history.length)
+          : 0;
+        const card = document.createElement('div');
+        card.className = 'activity-card';
+        card.innerHTML = `
+          <span class="activity-identity">${d.identity || '—'}</span>
+          <span class="activity-meta">${d.encounters || 0} encounter(s) · ${timeAgo(d.last_seen)}</span>
+          <span class="score-badge ${vClass}">${(d.verdict || 'unknown').toUpperCase()} · ${avgScore}/100</span>
+        `;
+        activityList.appendChild(card);
+      });
+    } catch (error) {
+      activityList.innerHTML = `<div class="remediation-empty">Impossible de charger l'activité — ${error.message}</div>`;
+    }
+  }
+
+  Object.entries(AGENT_IDS).forEach(([role, cardId]) => {
+    document.getElementById(cardId).addEventListener('click', () => _showAgentActivity(role));
+  });
 
   // Si rien ne se connecte après 5s, affiche un état "hors ligne" honnête
   setTimeout(() => {
