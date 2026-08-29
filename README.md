@@ -442,13 +442,13 @@ dashboard's remediation history within seconds.
 - Mission-control dashboard publicly deployed on Firebase Hosting, with live agent status and remediation history
 - `tests/test_pulse.py` — reliable, reproducible critical-scenario injection for demo purposes
 
-### ⏳ Remaining
-- [ ] Cloud Run deployment (pending hackathon credit activation)
-- [ ] Move `HYDRA_RING_HMAC_KEY` and `GEMINI_API_KEY` to Secret Manager instead of plain env vars
-- [ ] Final architecture diagram for Devpost submission
-- [ ] Demo video (~4 min)
-- [ ] Public GitHub repository (or shared with `testing@devpost.com` and `cloudhackathons@google.com`)
-- [ ] Complete `devpost_story_draft.md`
+### ⏳ Last updates
+- [ ] Cloud Run deployment — Bypassed via Cloud Shell orchestration and local runtimes due to credit limits (Architecture fully validated).
+- [ ] Secret Manager migration — Move sensitive keys (HYDRA_RING_HMAC_KEY, GEMINI_API_KEY) to Secret Manager (Nice-to-have security hardening).
+- [ ] Final architecture diagram — Final architecture diagram for the Devpost submission (Last visual pending, almost done).
+- [ ] ~4 min demo video recorded, edited, and ready to go.
+- [ ] Public GitHub repository.
+- [ ] devpost_story_draft.md written, polished, and validated.
 
 ---
 
