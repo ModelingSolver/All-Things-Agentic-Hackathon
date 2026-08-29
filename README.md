@@ -88,6 +88,10 @@ hydra-cloud/
 
 ---
 
+## Architecture
+
+![Full archi](./images/HydraFullArchi.jpeg)
+
 ## How It Works
 
 ```
@@ -132,6 +136,10 @@ and lets the live dashboard show each agent's real-time status.
 
 ## The 5 Roles In Detail
 
+## Architecture
+
+![Meet the Team](./images/agent_generate_image - A single wide dashboard-style frame divided into five vertic.png)
+
 | Box | Source File | Data Source | What It Does |
 |-----|-------------|--------------|----------------|
 | **Scout** | `boxes/scout.py` | Cloud Audit Logs (direct poll) | First alert, low thresholds (≥20/100), detects risky IAM methods and monitored severities |
@@ -139,6 +147,7 @@ and lets the live dashboard show each agent's real-time status.
 | **Ghost** | `boxes/ghost.py` | Cloud Audit Logs (direct poll) | Temporal patterns: off-hours (1am–5am UTC), activity bursts, never-seen identities |
 | **Oracle** | `boxes/oracle.py` | Ring (all signals) | Aggregates over a 15s window, calls Gemini for the final verdict, proposes remediation if critical |
 | **Druid** | `boxes/druid.py` | Ring (heartbeats) | Monitors the hive's own health, alerts if a box goes silent |
+
 
 ---
 
