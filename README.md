@@ -138,7 +138,9 @@ and lets the live dashboard show each agent's real-time status.
 
 ## Architecture
 
-![Meet the Team](./images/agent_generate_image - A single wide dashboard-style frame divided into five vertic.png)
+![Meet the Team](images/team.png)
+
+
 
 | Box | Source File | Data Source | What It Does |
 |-----|-------------|--------------|----------------|
