@@ -1,4 +1,5 @@
 # 🐍 Hydra Cloud Shield
+![The Hive](images/theHive.png)
 
 Distributed threat detection hive, ported to Google Cloud for the
 **All Things Agentic** hackathon (**Taskmaster** track).
