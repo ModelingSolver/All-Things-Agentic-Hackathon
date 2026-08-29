@@ -137,7 +137,7 @@ and lets the live dashboard show each agent's real-time status.
 
 ## The 5 Roles In Detail
 
-## Architecture
+## Meet the Team
 
 ![Meet the Team](images/team.png)
 
