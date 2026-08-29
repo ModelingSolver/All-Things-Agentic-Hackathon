@@ -10,7 +10,7 @@ Oracle — powered by **Gemini** — renders a consensus verdict before
 proposing a real remediation action (IAM role revocation / service
 account key disabling). **A human always confirms before execution.**
 
-https://www.youtube.com/watch?v=0wXv5tIo0Sk
+https://www.youtube.com/watch?v=jvC5opM9c74
 
 > Cloud port of Hydra-Smart-Shield (local prototype on Windows
 > processes). See [Differences vs local version](#differences-vs-local-version)
@@ -343,6 +343,41 @@ verdict.
    exactly one running instance per role (no horizontal scaling here —
    each role is a logical singleton).
 
+ **Note:** Due to hackathon Google Cloud credit processing delays, this
+ Cloud Run path was fully built and validated but not used for the
+ submitted demo. See [Cloud Shell Deployment](#cloud-shell-deployment-used-for-this-submission)
+ below for the actual deployment used in the demo video.
+
+
+## Cloud Shell Deployment (Used For This Submission)
+
+With Cloud Run blocked pending hackathon credit activation, the swarm
+was deployed on **Google Cloud Shell** — a real Debian VM provisioned
+by Google Cloud, requiring no billing account or payment method. This
+is genuine compute running on Google Cloud infrastructure, shown live
+in the demo video.
+
+```bash
+# In console.cloud.google.com, activate Cloud Shell (top-right icon)
+git clone https://github.com/ModelingSolver/All-Things-Agentic-Hackathon.git
+cd All-Things-Agentic-Hackathon
+pip install -r requirements.txt
+
+export GCP_PROJECT_ID=hydra-cloud-shield
+export HYDRA_RING_HMAC_KEY=your-generated-key
+export GEMINI_API_KEY=your-gemini-key
+
+# One tab per role
+BOX_ROLE=scout python3 main.py
+BOX_ROLE=tank python3 main.py
+BOX_ROLE=ghost python3 main.py
+BOX_ROLE=oracle python3 main.py
+BOX_ROLE=druid python3 main.py
+```
+
+Cloud Shell sessions are not persistent 24/7 by design (idle timeout),
+so the swarm runs on-demand rather than continuously — Cloud Run
+remains the intended production path once billing is available.
 ---
 
 ## Differences vs Local Version
