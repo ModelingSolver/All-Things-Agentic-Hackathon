@@ -327,6 +327,102 @@
   .status-badge.skipped { background: rgba(251,191,36,0.12); color: var(--amber); }
   .status-badge.failed { background: rgba(248,113,113,0.12); color: var(--red); }
 
+  /* ── Replay d'un scénario réel ─────────────────────────── */
+  .replay-button {
+    display: block;
+    width: 100%;
+    background: linear-gradient(135deg, rgba(34,211,238,0.1), rgba(167,139,250,0.1));
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.04em;
+    padding: 14px;
+    border-radius: 10px;
+    cursor: pointer;
+    margin-bottom: 32px;
+    transition: background 0.15s ease;
+  }
+
+  .replay-button:hover {
+    background: linear-gradient(135deg, rgba(34,211,238,0.18), rgba(167,139,250,0.18));
+  }
+
+  .replay-button:disabled {
+    opacity: 0.5;
+    cursor: wait;
+  }
+
+  #replayPanel {
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+
+  .replay-disclaimer {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--text-faint);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .replay-disclaimer::before {
+    content: '●';
+    color: var(--text-faint);
+  }
+
+  .replay-step {
+    display: flex;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+
+  .replay-step.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .replay-step:last-child { border-bottom: none; }
+
+  .replay-step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 13px;
+    color: var(--text-faint);
+    width: 20px;
+    flex-shrink: 0;
+  }
+
+  .replay-step-body { flex: 1; min-width: 0; }
+
+  .replay-step-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    color: var(--teal);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  .replay-step-text {
+    font-size: 13.5px;
+    color: var(--text-primary);
+    line-height: 1.5;
+  }
+
   /* ── Panneau d'activité par agent (au clic sur une carte) ── */
   #agentActivityPanel {
     margin-bottom: 36px;
@@ -487,6 +583,12 @@
     </div>
   </header>
 
+  <button id="replayButton" class="replay-button">
+    ▶ Replay a Real Detection Scenario
+  </button>
+
+  <div id="replayPanel" style="display:none;"></div>
+
 
   <div class="agents">
     <div class="agent-card teal" id="agent-scout">
@@ -570,7 +672,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import {
-    getFirestore, collection, query, orderBy, limit, onSnapshot, where, getDocs
+    getFirestore, collection, query, orderBy, limit, onSnapshot, where, getDocs, doc, getDoc
   } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
   // ─────────────────────────────────────────────────────────
@@ -621,8 +723,6 @@
 
   onSnapshot(memoryQuery, (snapshot) => {
     connected = true;
-    statusDot.classList.remove('offline', 'quiet');
-    statusText.textContent = 'RUCHE ACTIVE';
 
     if (snapshot.empty) {
       feedList.innerHTML = '<div class="empty-state">Aucun événement enregistré pour l\'instant.</div>';
@@ -764,12 +864,40 @@
     }
   }
 
+  // Le bandeau global reflète le vrai décompte d'agents actifs — pas
+  // juste "la connexion Firestore fonctionne" (qui reste vraie même
+  // quand aucune box ne tourne, puisque les données historiques
+  // persistent). C'est ce qui évite un "RUCHE ACTIVE" trompeur quand
+  // tous les agents sont réellement hors ligne.
+  function _renderGlobalStatus() {
+    const now = Date.now() / 1000;
+    const roles = Object.keys(AGENT_IDS);
+    const activeCount = roles.filter((role) => {
+      const lastSeen = _lastSeenByAgent[role];
+      return lastSeen && (now - lastSeen) < 45;
+    }).length;
+
+    if (activeCount === roles.length) {
+      statusDot.classList.remove('offline', 'quiet');
+      statusText.textContent = 'RUCHE ACTIVE';
+    } else if (activeCount > 0) {
+      statusDot.classList.remove('offline');
+      statusDot.classList.add('quiet');
+      statusText.textContent = `PARTIELLE — ${activeCount}/${roles.length} AGENTS`;
+    } else {
+      statusDot.classList.remove('quiet');
+      statusDot.classList.add('offline');
+      statusText.textContent = 'AGENTS HORS LIGNE';
+    }
+  }
+
   onSnapshot(collection(db, "hydra_agent_status"), (snapshot) => {
     snapshot.forEach((doc) => {
       const d = doc.data();
       _lastSeenByAgent[doc.id] = d.last_seen;
       _renderAgentStatus(doc.id);
     });
+    _renderGlobalStatus();
   }, (error) => {
     console.warn("Statut agents indisponible :", error.message);
   });
@@ -778,6 +906,7 @@
   // (ex: passer de active à offline si une box crashe silencieusement)
   setInterval(() => {
     Object.keys(AGENT_IDS).forEach(_renderAgentStatus);
+    _renderGlobalStatus();
   }, 5000);
 
   // ── Activité par agent (au clic sur une carte) ──────────────────
@@ -852,6 +981,97 @@
 
   Object.entries(AGENT_IDS).forEach(([role, cardId]) => {
     document.getElementById(cardId).addEventListener('click', () => _showAgentActivity(role));
+  });
+
+  // ── Replay d'un scénario réel ────────────────────────────────
+  // Rejoue, en animation, un vrai document déjà capturé dans
+  // hydra_remediation_proposals (le plus riche en contexte : verdict,
+  // explication Gemini, action recommandée, statut de résolution),
+  // enrichi avec hydra_memory pour savoir quels agents l'ont vu.
+  // Requête ponctuelle (pas de listener live) — clairement étiqueté
+  // comme un replay, pas un déclenchement en direct : aucune clé
+  // secrète n'est manipulée côté navigateur.
+  const replayButton = document.getElementById('replayButton');
+  const replayPanel = document.getElementById('replayPanel');
+
+  function _revealSteps(container) {
+    const steps = container.querySelectorAll('.replay-step');
+    steps.forEach((step, i) => {
+      setTimeout(() => step.classList.add('visible'), i * 500);
+    });
+  }
+
+  replayButton.addEventListener('click', async () => {
+    replayButton.disabled = true;
+    replayButton.textContent = '⏳ Loading real scenario data…';
+    replayPanel.style.display = 'block';
+    replayPanel.innerHTML = '<div class="remediation-empty">Fetching a real captured scenario…</div>';
+
+    try {
+      // On prend n'importe quelle proposition existante (résolue de
+      // préférence, sinon en attente) — pas d'orderBy pour éviter un
+      // index composite, tri fait côté client.
+      const snap = await getDocs(query(collection(db, "hydra_remediation_proposals"), limit(20)));
+
+      if (snap.empty) {
+        replayPanel.innerHTML = '<div class="remediation-empty">No captured scenario available yet — run tests/test_pulse.py first.</div>';
+        replayButton.disabled = false;
+        replayButton.textContent = '▶ Replay a Real Detection Scenario';
+        return;
+      }
+
+      const proposals = snap.docs.map(d => d.data());
+      const chosen = proposals.find(p => p.status && p.status !== 'pending_human_confirmation') || proposals[0];
+
+      // Enrichit avec hydra_memory pour lister les agents qui ont
+      // vraiment vu cette identité (reported_by).
+      let reportedBy = [];
+      try {
+        const memDoc = await getDoc(doc(db, "hydra_memory", (chosen.identity || '').toLowerCase()));
+        if (memDoc.exists()) reportedBy = memDoc.data().reported_by || [];
+      } catch (e) { /* pas bloquant si absent */ }
+
+      const statusLabels = { executed: 'EXECUTED', rejected: 'IGNORED', skipped: 'DEFERRED', failed: 'FAILED' };
+      const finalStatus = statusLabels[chosen.status] || 'AWAITING HUMAN CONFIRMATION';
+
+      replayPanel.innerHTML = `
+        <div class="replay-disclaimer">Replay of a real captured scenario — not a live trigger</div>
+        <div class="replay-step">
+          <span class="replay-step-num">1</span>
+          <div class="replay-step-body">
+            <div class="replay-step-label">Detection</div>
+            <div class="replay-step-text">Flagged by ${reportedBy.length ? reportedBy.map(r => r.toUpperCase()).join(', ') : 'the hive'} — identity: <strong>${chosen.identity}</strong></div>
+          </div>
+        </div>
+        <div class="replay-step">
+          <span class="replay-step-num">2</span>
+          <div class="replay-step-body">
+            <div class="replay-step-label">Gemini Consensus (Oracle)</div>
+            <div class="replay-step-text">Verdict: <strong>${(chosen.verdict || 'unknown').toUpperCase()} · ${chosen.score}/100</strong><br>${chosen.explanation || ''}</div>
+          </div>
+        </div>
+        <div class="replay-step">
+          <span class="replay-step-num">3</span>
+          <div class="replay-step-body">
+            <div class="replay-step-label">Remediation Proposed</div>
+            <div class="replay-step-text">Recommended action: <strong>${(chosen.recommended_action || 'none').replace(/_/g, ' ')}</strong></div>
+          </div>
+        </div>
+        <div class="replay-step">
+          <span class="replay-step-num">4</span>
+          <div class="replay-step-body">
+            <div class="replay-step-label">Human Decision</div>
+            <div class="replay-step-text">Status: <strong>${finalStatus}</strong> — via tools/remediate.py, human-in-the-loop, never automatic.</div>
+          </div>
+        </div>
+      `;
+      _revealSteps(replayPanel);
+    } catch (error) {
+      replayPanel.innerHTML = `<div class="remediation-empty">Could not load scenario — ${error.message}</div>`;
+    } finally {
+      replayButton.disabled = false;
+      replayButton.textContent = '▶ Replay a Real Detection Scenario';
+    }
   });
 
   // Si rien ne se connecte après 5s, affiche un état "hors ligne" honnête
