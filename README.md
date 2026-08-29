@@ -10,6 +10,8 @@ Oracle — powered by **Gemini** — renders a consensus verdict before
 proposing a real remediation action (IAM role revocation / service
 account key disabling). **A human always confirms before execution.**
 
+https://www.youtube.com/watch?v=0wXv5tIo0Sk
+
 > Cloud port of Hydra-Smart-Shield (local prototype on Windows
 > processes). See [Differences vs local version](#differences-vs-local-version)
 > for porting details.
