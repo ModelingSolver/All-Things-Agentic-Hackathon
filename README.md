@@ -526,4 +526,4 @@ decides"):
 
 ![Thank you Robot](./images/robot-thank-you.jpg)
 
-*Built solo with ❤️ and a lot of caffeine for Google Cloud x RAGE Hackathon*
+*Built solo with ❤️ and a lot of caffeine for Google Cloud x Devpost Hackathon*
