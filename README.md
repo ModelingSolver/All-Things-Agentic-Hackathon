@@ -520,3 +520,10 @@ decides"):
 - Any external call failure (Cloud Logging, Pub/Sub, Firestore,
   Gemini) is caught and logged rather than crashing a box — the system
   is designed to run autonomously without constant supervision.
+
+
+  ### Thank you!
+
+![Thank you Robot](./images/robot-thank-you.png)
+
+*Built solo with ❤️ and a lot of caffeine for Google Cloud x RAGE Hackathon*
