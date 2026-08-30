@@ -493,13 +493,12 @@ dashboard's remediation history within seconds.
 
 ### ⏳ Last updates
 - [ ] Cloud Run deployment — Bypassed via Cloud Shell orchestration and local runtimes due to credit limits (Architecture fully validated).
-- [ ] Secret Manager migration — Move sensitive keys (HYDRA_RING_HMAC_KEY, GEMINI_API_KEY) to Secret Manager (Nice-to-have security hardening).
-- [ ] Final architecture diagram — Final architecture diagram for the Devpost submission (Last visual pending, almost done).
-- [ ] ~4 min demo video recorded, edited, and ready to go.
+- [ ] Final architecture diagram — Final architecture diagram for the Devpost submission (Last visual done).
+- [ ] ~4 min demo video recorded, edited, and published.
 - [ ] Public GitHub repository.
-- [ ] devpost_story_draft.md written, polished, and validated.
+- [ ] story_draft.md written, polished, and validated.
+- [ ] Project submited.
 
----
 
 ## Troubleshooting
 
